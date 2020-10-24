@@ -1,0 +1,11 @@
+version: "3"
+services:
+  vault-actions:
+    image: vault-actions
+    build:
+      context: .
+    command: bash -c "echo 'sleep' && sleep infinity"
+    container_name: vault-action
+    volumes:
+      - .:/data
+      - /var/run/docker.sock:/var/run/docker.sock

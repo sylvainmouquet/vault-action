@@ -3,6 +3,7 @@ const core = require('@actions/core');
 const command = require('@actions/core/lib/command');
 const got = require('got').default;
 const jsonata = require('jsonata');
+const fs = require('fs');
 const { auth: { retrieveToken }, secrets: { getSecrets } } = require('./index');
 
 const AUTH_METHODS = ['approle', 'token', 'github'];
@@ -41,12 +42,12 @@ async function exportSecrets() {
 
     const clientCertificateRaw = core.getInput('clientCertificate', { required: false });
     if (clientCertificateRaw != null) {
-	    defaultOptions.https.certificate = Buffer.from(clientCertificateRaw, 'base64').toString();
+        defaultOptions.https.certificate = Buffer.from(clientCertificateRaw, 'base64').toString();
     }
 
     const clientKeyRaw = core.getInput('clientKey', { required: false });
     if (clientKeyRaw != null) {
-	    defaultOptions.https.key = Buffer.from(clientKeyRaw, 'base64').toString();
+        defaultOptions.https.key = Buffer.from(clientKeyRaw, 'base64').toString();
     }
 
     for (const [headerName, headerValue] of extraHeaders) {
@@ -77,7 +78,7 @@ async function exportSecrets() {
         const { value, request, cachedResponse } = result;
         if (cachedResponse) {
             core.debug('ℹ using cached response');
-        }        
+        }
         command.issue('add-mask', value);
         if (exportEnv) {
             core.exportVariable(request.envVarName, `${value}`);
@@ -92,6 +93,7 @@ async function exportSecrets() {
  * @property {string} envVarName
  * @property {string} outputVarName
  * @property {string} selector
+ * @property {string} outputFileName
 */
 
 /**
@@ -110,6 +112,7 @@ function parseSecretsInput(secretsInput) {
     for (const secret of secrets) {
         let pathSpec = secret;
         let outputVarName = null;
+        let outputFileName = null;
 
         const renameSigilIndex = secret.lastIndexOf('|');
         if (renameSigilIndex > -1) {
@@ -120,39 +123,63 @@ function parseSecretsInput(secretsInput) {
                 throw Error(`You must provide a value when mapping a secret to a name. Input: "${secret}"`);
             }
         }
+        const outputToFile = secret.lastIndexOf('>');
+        if (outputToFile > -1) {
+            pathSpec = secret.substring(0, outputToFile).trim();
+            outputFileName = secret.substring(outputToFile + 1).trim();
+        }
 
         const pathParts = pathSpec
             .split(/\s+/)
             .map(part => part.trim())
             .filter(part => part.length !== 0);
 
+
         if (pathParts.length !== 2) {
             throw Error(`You must provide a valid path and key. Input: "${secret}"`);
         }
 
+
         const [path, selectorQuoted] = pathParts;
 
-        /** @type {any} */
-        const selectorAst = jsonata(selectorQuoted).ast();
-        const selector = selectorQuoted.replace(new RegExp('"', 'g'), '');
-
-        if ((selectorAst.type !== "path" || selectorAst.steps[0].stages) && selectorAst.type !== "string" && !outputVarName) {
-            throw Error(`You must provide a name for the output key when using json selectors. Input: "${secret}"`);
-        }
-
         let envVarName = outputVarName;
-        if (!outputVarName) {
-            outputVarName = normalizeOutputKey(selector);
-            envVarName = normalizeOutputKey(selector, true);
+        let selector = null;
+
+        if (!outputFileName) {
+            if (selectorQuoted == '.') {
+                if (!outputVarName) {
+                    let cleanPath = path.replace(new RegExp('/', 'g'), '_');
+                    outputVarName = normalizeOutputKey(cleanPath);
+                    envVarName = normalizeOutputKey(cleanPath, true);
+                }
+            } else {
+                /** @type {any} */
+                const selectorAst = jsonata(selectorQuoted).ast();
+                const selector = selectorQuoted.replace(new RegExp('"', 'g'), '');
+
+                if ((selectorAst.type !== "path" || selectorAst.steps[0].stages) && selectorAst.type !== "string" && !outputVarName) {
+                    throw Error(`You must provide a name for the output key when using json selectors. Input: "${secret}"`);
+                }
+
+                if (!outputVarName) {
+                    outputVarName = normalizeOutputKey(selector);
+                    envVarName = normalizeOutputKey(selector, true);
+                }
+            }
         }
+
 
         output.push({
             path,
             envVarName,
             outputVarName,
-            selector
+            selector,
+            outputFileName
         });
+
+        console.log(output);
     }
+
     return output;
 }
 
