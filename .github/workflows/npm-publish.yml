@@ -1,0 +1,49 @@
+# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
+# For more information see: https://help.github.com/actions/language-and-framework-guides/publishing-nodejs-packages
+
+name: Vault Action Test
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Vault Secrets
+        # You may pin to the exact commit or the version.
+        # uses: hashicorp/vault-action@2ca76a4465bca4f71fc88320e67551a287f7eaec
+        uses: sylvainmouquet/vault-action@master
+        with:
+          # The URL for the vault endpoint
+          url: ...
+          secrets: 
+          # The Vault namespace from which to query secrets. Vault Enterprise only, unset by default
+          namespace: /
+          # The method to use to authenticate with Vault.
+          method: # optional, default is token
+          # The Vault Token to be used to authenticate with Vault
+          token: # optional
+          # The Role Id for App Role authentication
+          roleId: # optional
+          # The Secret Id for App Role authentication
+          secretId: # optional
+          # The Github Token to be used to authenticate with Vault
+          githubToken: # optional
+          # The JSON payload to be sent to Vault when using a custom authentication method.
+          authPayload: # optional
+          # A string of newline separated extra headers to include on every request.
+          extraHeaders: # optional
+          # Whether or not export secrets as environment variables.
+          exportEnv: # optional, default is true
+          # Whether or not export Vault token as environment variables.
+          exportToken: # optional, default is false
+          # Base64 encoded CA certificate to verify the Vault server certificate.
+          caCertificate: # optional
+          # Base64 encoded client certificate for mTLS communication with the Vault server.
+          clientCertificate: # optional
+          # Base64 encoded client key for mTLS communication with the Vault server.
+          clientKey: # optional
+          # When set to true, disables verification of the Vault server certificate.  Setting this to true in production is not recommended.
+          tlsSkipVerify: # optional, default is false
